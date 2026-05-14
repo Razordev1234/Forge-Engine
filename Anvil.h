@@ -108,7 +108,7 @@ class AnvilObject {
         Color color; // Propiedad para declarar el color del objeto
         Vector2 Scale = Vector2(100.0f, 100.0f);
         PrimitiveType primitiveType = TRIANGLE_STRIP;
-        unsigned int textureID = 0;
+        uint64_t textureID = 0;
     //agrega el objeto creado a una lista para luego ser recorrido y aplicar sus propiedad al shader
     AnvilObject() {
         this->color = Color(255, 255, 255);
@@ -293,8 +293,11 @@ inline void QuitVsync() {
     glfwSwapInterval(0);
 }
 
-inline unsigned int LoadTexture(const char* path)
+
+
+inline uint64_t LoadTexture(const char* path)
 {
+    stbi_set_flip_vertically_on_load(true);
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
@@ -307,17 +310,17 @@ inline unsigned int LoadTexture(const char* path)
 
     // Cargar la imagen, aqui es necesario el uso de una nueva libreria la cual es: stb_image.h
     int width, height, nrChannels;
-    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 4);
     if (data) {
-        GLenum format = (nrChannels == 4) ? GL_RGBA : GL_RGB;
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
         stbi_image_free(data);
     } else {
         std::cerr << "Error cargando textura: " << path << std::endl;
     }
-    
-    return textureID;
+    uint64_t handle = glGetTextureHandleARB(textureID);
+    glMakeTextureHandleResidentARB(handle);
+    return handle;
 }
 
 //h

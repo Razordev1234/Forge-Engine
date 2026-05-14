@@ -1,24 +1,18 @@
 #version 460 core
-
-out vec4 FragColor;
+#extension GL_ARB_gpu_shader_int64 : enable
+#extension GL_ARB_bindless_texture : enable 
 
 in vec3 ourColor;
 in vec2 TexCoord;
+flat in uint64_t vTexHandle; 
 
-uniform sampler2D ourTexture;
-uniform bool useTexture;
+out vec4 FragColor;
 
 void main() {
-    vec4 texColor = vec4(1.0);
-    
-    if (useTexture) {
-        texColor = texture(ourTexture, TexCoord);
+    if (vTexHandle != 0ul) {
+        sampler2D tex = sampler2D(vTexHandle);
+        FragColor = texture(tex, TexCoord) * vec4(ourColor, 1.0);
+    } else {
+        FragColor = vec4(ourColor, 1.0);
     }
-
-
-    vec4 finalColor = vec4(ourColor, 1.0) * texColor;
-
-
-
-    FragColor = finalColor;
 }

@@ -1,54 +1,84 @@
 #version 460 core
+#extension GL_ARB_gpu_shader_int64 : enable
 
-layout (location = 0) in vec3 aPos;
-layout (location = 2) in vec2 aTexCoord;
+
 
 out vec3 ourColor;
 out vec2 TexCoord;
+flat out uint64_t vTexHandle; 
 
 uniform mat4 proyeccion;
 
+
+struct DatosAEnviar {
+    float EscalaPrivadaX, EscalaPrivadaY;
+    float PosX, PosY;
+    float Rotation;
+    float ScaleX, ScaleY;
+    float ColorR, ColorG, ColorB;
+    float padding;
+    uint64_t Handle; 
+};
+
+
 layout(std430, binding = 0) buffer ObjetoBuffer {
-    float datos[]; 
-} objetoBuffer;
+    DatosAEnviar objetos[];
+};
 
 void main() {
-    int base = gl_InstanceID * 12; 
 
-    // extraer matrices (16 floats cada una)
-    mat4 mTras = mat4(
-        vec4(1.0f, 0.0f, 0.0f, 0.0f),
-        vec4(0.0f, 1.0f, 0.0f, 0.0f),
-        vec4(0.0f, 0.0f, 1.0f, 0.0f),
-        vec4(objetoBuffer.datos[base + 2] / 100.0f, objetoBuffer.datos[base + 3] / 100.0f, 0.0f, 1.0f)
+    vec2 posiciones[4] = vec2[](
+        vec2(-1.0,  1.0), 
+        vec2(-1.0, -1.0), 
+        vec2( 1.0,  1.0), 
+        vec2( 1.0, -1.0)  
     );
-    float rotacionGrados = objetoBuffer.datos[base + 4];
-    float c = cos(radians(rotacionGrados));
-    float s = sin(radians(rotacionGrados));
+
+    vec2 uvs[4] = vec2[](
+        vec2(0.0, 1.0),
+        vec2(0.0, 0.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0)
+    );
+
+    vec2 posLocal = posiciones[gl_VertexID % 4];
+    TexCoord = uvs[gl_VertexID % 4];
+
+
+    DatosAEnviar obj = objetos[gl_InstanceID];
+
+    mat4 mTras = mat4(
+        vec4(1.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 1.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(obj.PosX / 100.0, obj.PosY / 100.0, 0.0, 1.0)
+    );
+    
+    float c = cos(radians(obj.Rotation));
+    float s = sin(radians(obj.Rotation));
     mat4 mRot = mat4(
-        vec4(c,s,0.0f,0.0f),
-        vec4(-s, c,0.0f,0.0f),
-        vec4(0.0f,0.0f,1.0f,0.0f),
-        vec4(0.0f,0.0f,0.0f,1.0f)
+        vec4(c, s, 0.0, 0.0),
+        vec4(-s, c, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
     );
 
     mat4 mEsc = mat4(
-        vec4(objetoBuffer.datos[base + 5] / 100.0f,0.0f,0.0f,0.0f),
-        vec4(0.0f,objetoBuffer.datos[base + 6] / 100.0f,0.0f,0.0f),
-        vec4(0.0f,0.0f,1.0f,0.0f),
-        vec4(0.0f,0.0f,0.0f,1.0f)
+        vec4(obj.ScaleX / 100.0, 0.0, 0.0, 0.0),
+        vec4(0.0, obj.ScaleY / 100.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
     );
 
     mat4 mPriv = mat4(
-        vec4(objetoBuffer.datos[base],0.0f,0.0f,0.0f),
-        vec4(0.0f,objetoBuffer.datos[base + 1],0.0f,0.0f),
-        vec4(0.0f,0.0f,1.0f,0.0f),
-        vec4(0.0f,0.0f,0.0f,1.0f)
+        vec4(obj.EscalaPrivadaX, 0.0, 0.0, 0.0),
+        vec4(0.0, obj.EscalaPrivadaY, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
     );
 
-    ourColor = vec3(objetoBuffer.datos[base + 8] / 255.0f, objetoBuffer.datos[base + 9] / 255.0f,objetoBuffer.datos[base + 10] / 255.0f);
-    TexCoord = aTexCoord;
+    ourColor = vec3(obj.ColorR / 255.0, obj.ColorG / 255.0, obj.ColorB / 255.0);
+    vTexHandle = obj.Handle;
 
-    // Combinar matrices y aplicar proyección
-    gl_Position = proyeccion * mTras * mRot * mEsc * mPriv * vec4(aPos, 1.0);
+    gl_Position = proyeccion * mTras * mRot * mEsc * mPriv * vec4(posLocal, 0.0, 1.0);
 }
